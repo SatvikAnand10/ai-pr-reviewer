@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI PR Reviewer Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e2e2e6;
+    --text: #1a1a1e;
+    --text-muted: #6b6b74;
+    --accent: #4f46e5;
+    --critical: #dc2626;
+    --high: #ea580c;
+    --medium: #d97706;
+    --low: #2563eb;
+    --info: #6b7280;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214;
+      --surface: #1c1c1f;
+      --border: #2e2e33;
+      --text: #f0f0f2;
+      --text-muted: #9a9aa2;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem 1.5rem 4rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin: 0 0 1.5rem;
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+  }
+  .stat-card .label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .stat-card .value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+  }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 2rem;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .panel h2 {
+    font-size: 1rem;
+    margin: 0 0 1rem;
+  }
+  canvas {
+    max-width: 100%;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    color: var(--text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  td.summary {
+    max-width: 420px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge.approve { background: rgba(37, 99, 235, 0.15); color: var(--low); }
+  .badge.request_changes { background: rgba(220, 38, 38, 0.15); color: var(--critical); }
+  .badge.comment { background: rgba(107, 114, 128, 0.15); color: var(--info); }
+  .empty-state {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 1rem 0;
+  }
+</style>
+</head>
+<body>
+  <h1>AI PR Reviewer Dashboard</h1>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Total Reviews</div>
+      <div class="value" id="stat-total">-</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Avg Issues / Review</div>
+      <div class="value" id="stat-avg-issues">-</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Issue Count Over Time</h2>
+    <canvas id="issues-chart" height="90"></canvas>
+    <div class="empty-state" id="chart-empty" style="display:none;">No reviews yet.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Recent Reviews</h2>
+    <table id="reviews-table">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Provider</th>
+          <th>Summary</th>
+          <th>Assessment</th>
+        </tr>
+      </thead>
+      <tbody id="reviews-tbody"></tbody>
+    </table>
+    <div class="empty-state" id="table-empty" style="display:none;">No reviews yet.</div>
+  </div>
+
+  <script>
+    async function loadDashboard() {
+      const response = await fetch('/api/v1/reviews');
+      const reviews = await response.json();
+
+      const total = reviews.length;
+      const totalIssues = reviews.reduce((sum, r) => sum + (r.issues ? r.issues.length : 0), 0);
+      const avgIssues = total > 0 ? (totalIssues / total).toFixed(1) : '0';
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-avg-issues').textContent = avgIssues;
+
+      renderTable(reviews);
+      renderChart(reviews);
+    }
+
+    function renderTable(reviews) {
+      const tbody = document.getElementById('reviews-tbody');
+      const emptyState = document.getElementById('table-empty');
+      tbody.innerHTML = '';
+
+      if (reviews.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      for (const review of reviews) {
+        const row = document.createElement('tr');
+
+        const timestamp = new Date(review.created_at).toLocaleString();
+        row.innerHTML = `
+          <td>${timestamp}</td>
+          <td>${escapeHtml(review.provider)}</td>
+          <td class="summary">${escapeHtml(review.summary)}</td>
+          <td><span class="badge ${review.overall_assessment}">${review.overall_assessment.replace('_', ' ')}</span></td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    function renderChart(reviews) {
+      const emptyState = document.getElementById('chart-empty');
+      const canvas = document.getElementById('issues-chart');
+
+      if (reviews.length === 0) {
+        emptyState.style.display = 'block';
+        canvas.style.display = 'none';
+        return;
+      }
+      emptyState.style.display = 'none';
+      canvas.style.display = 'block';
+
+      // API returns newest-first; plot chronologically (oldest to newest).
+      const chronological = [...reviews].reverse();
+      const labels = chronological.map(r => new Date(r.created_at).toLocaleString());
+      const counts = chronological.map(r => r.issues ? r.issues.length : 0);
+
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Issues found',
+            data: counts,
+            backgroundColor: '#4f46e5',
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } },
+          },
+        },
+      });
+    }
+
+    function escapeHtml(value) {
+      const div = document.createElement('div');
+      div.textContent = value ?? '';
+      return div.innerHTML;
+    }
+
+    loadDashboard().catch((err) => {
+      console.error('Failed to load dashboard data', err);
+    });
+  </script>
+</body>
+</html>

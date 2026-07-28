@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import health, review, webhook
+from app.api.routes import dashboard, health, review, webhook
 from app.db.database import Base, engine
 from app.db.models import ReviewRecord  # noqa: F401  (registers model with Base.metadata)
 
@@ -28,3 +28,4 @@ app = FastAPI(title="AI PR Reviewer", version="0.1.0", lifespan=lifespan)
 app.include_router(health.router)
 app.include_router(review.router)
 app.include_router(webhook.router)
+app.include_router(dashboard.router)
