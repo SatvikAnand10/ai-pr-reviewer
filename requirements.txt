@@ -10,3 +10,4 @@ asyncpg>=0.30
 PyJWT[crypto]>=2.9
 pytest>=8.3
 pytest-asyncio>=0.24
+# testing AI reviewer
