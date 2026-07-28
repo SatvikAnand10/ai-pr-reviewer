@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     default_provider: str = "claude"
     claude_model: str = "claude-sonnet-5"
     groq_model: str = "llama-3.3-70b-versatile"
+    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_pr_reviewer"
 
 
 @lru_cache

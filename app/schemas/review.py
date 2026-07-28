@@ -1,7 +1,8 @@
+from datetime import datetime
 from enum import Enum
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Severity(str, Enum):
@@ -39,3 +40,15 @@ class ReviewRequest(BaseModel):
 class ReviewResponse(BaseModel):
     provider: str
     result: ReviewResult
+
+
+class ReviewRecordOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+    provider: str
+    diff: str
+    summary: str
+    issues: list[Issue]
+    overall_assessment: Literal["approve", "request_changes", "comment"]

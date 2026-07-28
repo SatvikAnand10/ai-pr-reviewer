@@ -2,6 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.routes.review import get_reviewer_service
+from app.db.database import get_db
 from app.main import app
 from app.schemas.review import ReviewRequest, ReviewResult
 
@@ -30,9 +31,25 @@ class FakeReviewerService:
         )
 
 
+class FakeSession:
+    def add(self, obj) -> None:
+        pass
+
+    async def commit(self) -> None:
+        pass
+
+    async def refresh(self, obj) -> None:
+        pass
+
+
+async def _fake_get_db():
+    yield FakeSession()
+
+
 @pytest.fixture
 def client():
     app.dependency_overrides[get_reviewer_service] = lambda: FakeReviewerService()
+    app.dependency_overrides[get_db] = _fake_get_db
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
