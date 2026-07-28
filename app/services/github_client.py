@@ -11,13 +11,17 @@ GITHUB_API_BASE = "https://api.github.com"
 class GitHubClient:
     def __init__(self, settings: Settings):
         self.app_id = settings.github_app_id
+        self.private_key_value = settings.github_private_key
         self.private_key_path = settings.github_private_key_path
         self._private_key: str | None = None
 
     def _load_private_key(self) -> str:
         if self._private_key is None:
-            with open(self.private_key_path, encoding="utf-8") as f:
-                self._private_key = f.read()
+            if self.private_key_value:
+                self._private_key = self.private_key_value
+            else:
+                with open(self.private_key_path, encoding="utf-8") as f:
+                    self._private_key = f.read()
         return self._private_key
 
     def _generate_jwt(self) -> str:

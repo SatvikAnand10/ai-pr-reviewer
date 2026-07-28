@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ai_pr_reviewer"
     github_app_id: str = ""
+    github_private_key: str = ""
     github_private_key_path: str = ""
     github_webhook_secret: str = ""
 
