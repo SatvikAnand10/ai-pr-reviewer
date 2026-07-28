@@ -29,7 +29,7 @@ class GitHubClient:
         payload = {
             "iat": now - 60,
             "exp": now + 600,
-            "iss": int(self.app_id),
+            "iss": str(self.app_id),
         }
         return jwt.encode(payload, self._load_private_key(), algorithm="RS256")
 
